@@ -37,3 +37,6 @@ dist-ssr
 # OS files
 .DS_Store
 Thumbs.db
+
+# Portable launcher runtime state
+nova_launcher_config.json

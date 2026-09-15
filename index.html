@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
     <link rel="stylesheet" href="/src/styles.css" />
@@ -9,35 +9,142 @@
   </head>
 
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
+    <div class="app">
+      <nav class="sidebar">
+        <div class="brand" title="Nova Launcher">N</div>
+        <button class="nav-btn active" data-page="home" title="主页" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 10.5 12 3l9 7.5" />
+            <path d="M5 9.5V21h5v-6h4v6h5V9.5" />
+          </svg>
+        </button>
+        <button class="nav-btn" data-page="settings" title="设置" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <line x1="4" y1="21" x2="4" y2="14" />
+            <line x1="4" y1="10" x2="4" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="12" />
+            <line x1="12" y1="8" x2="12" y2="3" />
+            <line x1="20" y1="21" x2="20" y2="16" />
+            <line x1="20" y1="12" x2="20" y2="3" />
+            <line x1="1" y1="14" x2="7" y2="14" />
+            <line x1="9" y1="8" x2="15" y2="8" />
+            <line x1="17" y1="16" x2="23" y2="16" />
+          </svg>
+        </button>
+        <button class="nav-btn" data-page="logs" title="日志" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+        </button>
+        <div class="sidebar-spacer"></div>
+      </nav>
 
-      <div class="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/src/assets/vite.svg" class="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img
-            src="/src/assets/tauri.svg"
-            class="logo tauri"
-            alt="Tauri logo"
-          />
-        </a>
-        <a href="https://www.typescriptlang.org/docs" target="_blank">
-          <img
-            src="/src/assets/typescript.svg"
-            class="logo typescript"
-            alt="typescript logo"
-          />
-        </a>
-      </div>
-      <p>Click on the Tauri logo to learn more about the framework</p>
+      <main class="content">
+        <!-- 主页 -->
+        <section class="page page-home active" id="page-home">
+          <div class="home-main">
+            <div class="avatar" id="avatar">P</div>
+            <h2 id="player-name">Player</h2>
+            <a href="#" id="edit-profile">修改资料</a>
+            <div class="status idle" id="status">待机</div>
+            <div class="detect-hint" id="detect-hint"></div>
+            <button id="launch" class="btn launch" type="button">启 动</button>
+          </div>
+          <div class="home-reserved"><span>预留拓展区</span></div>
+        </section>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
-    </main>
+        <!-- 设置 -->
+        <section class="page page-settings" id="page-settings">
+          <div class="settings-card">
+            <label class="field">
+              <span class="label">玩家名</span>
+              <input
+                id="username"
+                type="text"
+                maxlength="16"
+                placeholder="Player"
+                autocomplete="off"
+                spellcheck="false"
+                autocorrect="off"
+                autocapitalize="off"
+              />
+            </label>
+
+            <label class="field">
+              <span class="label">Java 可执行文件</span>
+              <div class="inline">
+                <input
+                  id="java-path"
+                  type="text"
+                  placeholder="例如 C:\Program Files\Java\jre1.8.0_491\bin\javaw.exe"
+                  autocomplete="off"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                />
+                <button id="java-browse" class="btn" type="button">浏览</button>
+                <button id="java-check" class="btn" type="button">检测</button>
+              </div>
+              <em id="java-info" class="hint"></em>
+            </label>
+
+            <label class="field">
+              <span class="label">内存分配 <b id="mem-label">2048 MB</b></span>
+              <div class="inline">
+                <input
+                  id="mem-range"
+                  type="range"
+                  min="1024"
+                  max="16384"
+                  step="256"
+                  autocomplete="off"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                />
+                <input
+                  id="mem-num"
+                  type="number"
+                  min="512"
+                  max="65536"
+                  step="256"
+                  autocomplete="off"
+                  spellcheck="false"
+                  autocorrect="off"
+                  autocapitalize="off"
+                />
+                <span class="unit">MB</span>
+              </div>
+            </label>
+
+            <p class="note">.minecraft 目录自动识别：启动器需与 .minecraft 位于同一目录。</p>
+          </div>
+        </section>
+
+        <!-- 日志 -->
+        <section class="page page-logs" id="page-logs">
+          <div class="logs-toolbar">
+            <label class="check" title="更改将在下次启动游戏时生效">
+              <input
+                id="logs-enabled"
+                type="checkbox"
+                checked
+                autocomplete="off"
+                spellcheck="false"
+                autocorrect="off"
+                autocapitalize="off"
+              />
+              启用日志采集
+            </label>
+            <button id="export-log" class="btn small" type="button">导出日志</button>
+          </div>
+          <pre id="console" class="console"></pre>
+        </section>
+      </main>
+    </div>
   </body>
 </html>

@@ -14,8 +14,10 @@
     "windows": [
       {
         "title": "Nova Launcher",
-        "width": 800,
-        "height": 600
+        "width": 880,
+        "height": 660,
+        "minWidth": 760,
+        "minHeight": 560
       }
     ],
     "security": {

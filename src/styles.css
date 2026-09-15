@@ -1,116 +1,417 @@
-.logo.vite:hover {
-  filter: drop-shadow(0 0 2em #747bff);
-}
-
-.logo.typescript:hover {
-  filter: drop-shadow(0 0 2em #2d79c7);
-}
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
+  --bg-1: #eef5fd;
+  --bg-2: #d9e9f9;
+  --panel: #ffffff;
+  --panel-soft: #f4f9fe;
+  --border: #d3e3f5;
+  --border-strong: #b9d3ee;
+  --text: #2b3a4e;
+  --muted: #7d93ad;
+  --accent: #4a90d9;
+  --accent-deep: #3a7bc0;
+  --accent-soft: #dcedfb;
 
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  -webkit-text-size-adjust: 100%;
+  font-family: "Segoe UI", Inter, "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  color-scheme: light;
 }
 
-.container {
+* {
+  box-sizing: border-box;
+}
+
+body {
   margin: 0;
-  padding-top: 10vh;
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---- 桌面应用手感：界面元素不可选中、不可拖拽 ---- */
+
+img,
+svg {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 可编辑控件仍需正常选中文本 */
+input,
+textarea,
+select {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ---- 左侧图标栏 ---- */
+
+.sidebar {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  align-items: center;
+  gap: 8px;
+  width: 56px;
+  padding: 14px 0;
+  background: rgba(255, 255, 255, 0.55);
+  border-right: 1px solid var(--border);
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+.brand {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(160deg, #6db3f2, var(--accent));
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(74, 144, 217, 0.35);
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
-}
-
-.row {
-  display: flex;
-  justify-content: center;
-}
-
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-
-a:hover {
-  color: #535bf2;
-}
-
-h1 {
-  text-align: center;
-}
-
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
-}
-
-button {
+.nav-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 11px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
 }
 
-input,
-button {
+.nav-btn:hover {
+  color: var(--accent-deep);
+  background: rgba(220, 237, 251, 0.7);
+}
+
+.nav-btn.active {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+.sidebar-spacer {
+  flex: 1;
+}
+
+/* ---- 内容区 / 页面 ---- */
+
+.content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px;
+}
+
+.page {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.page.active {
+  display: flex;
+}
+
+/* ---- 主页 ---- */
+
+.page-home {
+  gap: 24px;
+}
+
+.home-main {
+  display: flex;
+  flex: 0 0 44%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+#player-name {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+}
+
+#edit-profile {
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+#edit-profile:hover {
+  text-decoration: underline;
+}
+
+.status {
+  margin-top: 8px;
+  padding: 4px 14px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status.idle {
+  color: var(--muted);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.status.running {
+  color: #1e7e34;
+  border-color: #b7dfc2;
+  background: #e9f7ee;
+}
+
+.status.error {
+  color: #c5221f;
+  border-color: #f2c1bf;
+  background: #fdecea;
+}
+
+.detect-hint {
+  max-width: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detect-hint.bad {
+  color: #c07f1d;
+}
+
+.home-reserved {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  margin: 16px 20px 16px 0;
+  border: 1.5px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+/* ---- 设置 ---- */
+
+.page-settings.active {
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(58, 123, 192, 0.08);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.label b {
+  margin-left: 0.4em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline > input[type="text"],
+input[type="number"] {
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text);
+  background: #fbfdff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
   outline: none;
 }
 
-#greet-input {
-  margin-right: 5px;
+.inline > input[type="text"] {
+  flex: 1;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
+input[type="number"] {
+  max-width: 110px;
+  text-align: right;
+}
 
-  a:hover {
-    color: #24c8db;
-  }
+input:focus {
+  border-color: var(--accent);
+}
 
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.unit {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.hint {
+  min-height: 1.1em;
+  margin: 0;
+  font-size: 0.8rem;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.hint.bad {
+  color: #c5221f;
+}
+
+.note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+/* ---- 日志 ---- */
+
+.page-logs.active {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.console {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+  color: #3b4a5f;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  background: #f8fbfe;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+/* ---- 按钮 ---- */
+
+.btn {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--accent-deep);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.small {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+.btn.launch {
+  margin-top: 10px;
+  padding: 13px 60px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  color: #fff;
+  background: linear-gradient(180deg, #6db3f2, var(--accent));
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(74, 144, 217, 0.4);
+}
+
+.btn.launch:hover:not(:disabled) {
+  background: linear-gradient(180deg, #7fbdf5, #529ade);
 }
