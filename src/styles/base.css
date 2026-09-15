@@ -1,0 +1,75 @@
+/* 设计变量 + 全局重置 */
+
+:root {
+  --bg-1: #eef5fd;
+  --bg-2: #d9e9f9;
+  --panel: #ffffff;
+  --panel-soft: #f4f9fe;
+  --border: #d3e3f5;
+  --border-strong: #b9d3ee;
+  --text: #2b3a4e;
+  --muted: #7d93ad;
+  --accent: #4a90d9;
+  --accent-deep: #3a7bc0;
+  --accent-soft: #dcedfb;
+
+  font-family: "Segoe UI", Inter, "Microsoft YaHei", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--bg-1), var(--bg-2));
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* ---- 桌面应用手感：界面元素不可选中、不可拖拽 ---- */
+
+img,
+svg {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* 可编辑控件仍需正常选中文本 */
+input,
+textarea,
+select {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ---- 内容区 / 页面 ---- */
+
+.content {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  padding: 20px 24px;
+}
+
+.page {
+  display: none;
+  flex: 1;
+  min-height: 0;
+}
+
+.page.active {
+  display: flex;
+}

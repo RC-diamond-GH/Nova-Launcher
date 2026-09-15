@@ -1,0 +1,58 @@
+/* ---- 左侧图标栏 ---- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 56px;
+  padding: 14px 0;
+  background: rgba(255, 255, 255, 0.55);
+  border-right: 1px solid var(--border);
+}
+
+.brand {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin-bottom: 10px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(160deg, #6db3f2, var(--accent));
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(74, 144, 217, 0.35);
+}
+
+.nav-btn {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.nav-btn:hover {
+  color: var(--accent-deep);
+  background: rgba(220, 237, 251, 0.7);
+}
+
+.nav-btn.active {
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+}
+
+.sidebar-spacer {
+  flex: 1;
+}

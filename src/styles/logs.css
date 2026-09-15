@@ -1,0 +1,38 @@
+/* ---- 日志 ---- */
+
+.page-logs.active {
+  flex-direction: column;
+  gap: 10px;
+}
+
+.logs-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.check {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+}
+
+.console {
+  flex: 1;
+  margin: 0;
+  padding: 10px 12px;
+  overflow: auto;
+  font: 12px/1.5 Consolas, "Cascadia Mono", monospace;
+  color: #3b4a5f;
+  white-space: pre-wrap;
+  word-break: break-all;
+  user-select: text;
+  background: #f8fbfe;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}

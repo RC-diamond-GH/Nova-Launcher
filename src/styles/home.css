@@ -1,0 +1,82 @@
+/* ---- 主页 ---- */
+
+.home-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  font-size: 1.9rem;
+  font-weight: 700;
+  color: var(--accent-deep);
+  background: var(--accent-soft);
+  border: 2px solid var(--border-strong);
+  border-radius: 50%;
+}
+
+#player-name {
+  margin: 0;
+  font-size: 1.55rem;
+  font-weight: 700;
+}
+
+#edit-profile {
+  font-size: 0.8rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+#edit-profile:hover {
+  text-decoration: underline;
+}
+
+.status {
+  margin-top: 8px;
+  padding: 4px 14px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status.idle {
+  color: var(--muted);
+  border-color: var(--border-strong);
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.status.running {
+  color: #1e7e34;
+  border-color: #b7dfc2;
+  background: #e9f7ee;
+}
+
+.status.error {
+  color: #c5221f;
+  border-color: #f2c1bf;
+  background: #fdecea;
+}
+
+.detect-hint {
+  max-width: 100%;
+  font-size: 0.8rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.detect-hint.bad {
+  color: #c07f1d;
+}

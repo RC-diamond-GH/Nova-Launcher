@@ -1,0 +1,94 @@
+/* ---- 设置 ---- */
+
+.page-settings.active {
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  width: min(560px, 100%);
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgba(58, 123, 192, 0.08);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.label b {
+  margin-left: 0.4em;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.inline {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.inline > input[type="text"],
+input[type="number"] {
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--text);
+  background: #fbfdff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  outline: none;
+}
+
+.inline > input[type="text"] {
+  flex: 1;
+}
+
+input[type="number"] {
+  max-width: 110px;
+  text-align: right;
+}
+
+input:focus {
+  border-color: var(--accent);
+}
+
+input[type="range"] {
+  flex: 1;
+  accent-color: var(--accent);
+}
+
+input[type="checkbox"] {
+  accent-color: var(--accent);
+}
+
+.unit {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.hint {
+  min-height: 1.1em;
+  margin: 0;
+  font-size: 0.8rem;
+  font-style: normal;
+  color: var(--muted);
+}
+
+.hint.bad {
+  color: #c5221f;
+}

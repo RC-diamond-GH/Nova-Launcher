@@ -1,0 +1,45 @@
+/* ---- 按钮 ---- */
+
+.btn {
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: var(--accent-deep);
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn.small {
+  padding: 4px 12px;
+  font-size: 0.8rem;
+}
+
+.btn.launch {
+  margin-top: 10px;
+  padding: 13px 60px;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.5em;
+  color: #fff;
+  background: linear-gradient(180deg, #6db3f2, var(--accent));
+  border: none;
+  border-radius: 12px;
+  box-shadow: 0 4px 14px rgba(74, 144, 217, 0.4);
+}
+
+.btn.launch:hover:not(:disabled) {
+  background: linear-gradient(180deg, #7fbdf5, #529ade);
+}
