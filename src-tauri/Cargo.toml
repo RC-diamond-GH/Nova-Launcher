@@ -31,6 +31,8 @@ parking_lot = "0.12"
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.38"
 windows-core = "0.61"
+# Java discovery reads the installer keys (JavaSoft, Adoptium, Microsoft, ...).
+winreg = "0.55"
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

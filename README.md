@@ -7,7 +7,7 @@ Minecraft 启动器 MVP（Tauri 2 + Rust + TypeScript），淡蓝色主题。
 左侧窄图标栏切换三个页面：
 
 - **主页**：玩家名 + 启动按钮
-- **设置**：玩家名、Java 可执行文件（浏览/检测）、macOS 本机 Java 自动寻找与选用、内存分配
+- **设置**：玩家名、Java 可执行文件（浏览/检测）、Windows / macOS 本机 Java 自动寻找与选用、内存分配
 - **日志**：启用日志采集开关（下次启动生效）、导出日志按钮、实时日志
 
 ## 启动逻辑
@@ -18,7 +18,7 @@ Minecraft 启动器 MVP（Tauri 2 + Rust + TypeScript），淡蓝色主题。
 - 主类 / tweakClass 自动从版本 json 解析（如 Forge 的 `net.minecraft.launchwrapper.Launch` + `FMLTweaker`），无 json 时按版本名推断
 - 离线用户名（空格转 `_`），配置持久化到与 `.minecraft` 同级的 `nova_launcher_config.json`（便携，不写系统应用配置目录）
 
-暂不支持：正版登录、版本隔离；Java 自动寻找目前仅实现 macOS，其他平台仍可手动浏览、填写路径和检测。
+暂不支持：正版登录、版本隔离；Java 自动寻找支持 Windows 和 macOS，其他平台仍可手动浏览、填写路径和检测。
 
 ### Apple Silicon macOS 启动
 
@@ -34,20 +34,32 @@ ARM 原生启动器及 Apple Silicon 上经 Rosetta 运行的 Intel 启动器，
 此分支面向脚本对应的旧版 **LWJGL 2 / Forge 整合包**，不是 LWJGL 3 的通用启动方式。需自行准备脚本配套的 `mac-dlls/dist/` 产物（启动器不会自动下载或构建），并在设置中选择 **arm64 / aarch64 Java 8**；Intel Java 不能加载这些 ARM 动态库。不要额外添加 `-XstartOnFirstThread`。
 
 
-## macOS Java 自动寻找
+## 本机 Java 自动寻找（Windows / macOS）
 
 启动器恢复配置后自动扫描；在 **设置 → 本机 Java** 查看 Java 可执行文件的完整路径、版本、厂商及指令集架构（如 `arm64`、`x86_64`、`x86`）。点击 **选用** 将路径填入现有设置并自动保存；扫描和重新扫描本身不会覆盖当前选择。
 
-扫描来源：
+### Windows 搜索来源
+
+- 已保存的 Java 路径、`JAVA_HOME`、`JRE_HOME`、`JDK_HOME`、`PATH`。
+- HKLM 的 32 / 64 位注册表视图及 HKCU：JavaSoft、Adoptium / AdoptOpenJDK、Microsoft、Azul、BellSoft、Semeru 等安装键；支持 `JavaHome`、`InstallationPath`、MSI `Path` 和 `REG_EXPAND_SZ` 环境变量路径。
+- 从环境变量定位 `Program Files`（含 x86）、`ProgramData`、用户安装目录中的常见 Java 厂商目录；Scoop、Chocolatey 的 Java 包。
+- 用户 `.jdks`、Gradle、SDKMAN、asdf、mise、jabba、jenv 的运行时及自定义工具根目录；JetBrains / Android Studio 的 JBR/JRE、Toolbox 应用目录。
+- Minecraft、PrismLauncher、PolyMC 的常见运行时目录。
+
+优先探测 `java.exe`，同目录的 `javaw.exe` 不重复列出；只有 GUI 可执行文件时保留该候选。Oracle `javapath` 转发程序和 JDK 内置 JRE 按 JVM 报告的 `java.home` 下真实可执行文件归并，避免重复选项。注册表只读，最多扫描 1024 个键、向下 4 层。
+
+### macOS 搜索来源
 
 - macOS `/usr/libexec/java_home -V`、系统与用户的 `JavaVirtualMachines` 目录、旧版 Apple Java 和 Java 插件目录。
 - `JAVA_HOME`、`PATH`，以及 `/opt/homebrew` 和 `/usr/local` 下 Homebrew 的 `opt` / `Cellar` JDK。
 - SDKMAN、asdf、mise/rtx、jabba、jenv、Gradle 的常见 Java 目录；支持 SDKMAN、asdf、mise、jabba 的自定义根目录环境变量。
 - Minecraft、PrismLauncher、PolyMC 的常见运行时目录，以及 `/Applications`、`~/Applications` 下常见应用内置的 JBR/JRE。
 
+### 探测与扫描边界
+
 每个候选实际运行 `-XshowSettings:properties -version`，从 JVM 输出读取信息；仅在旧 JVM 明确不支持该选项时回退 `-version`，无法确认的架构显示为“未知”，不会拿本机 CPU 架构代替 JVM 架构。结果按真实可执行文件路径去重，忽略 macOS `/usr/bin/java` 安装占位程序。
 
-扫描不全盘递归：常见目录有深度限制，最多深入 4096 个目录、接受 128 个不同候选；目录软链接只检查已知 Java home 结构，不递归。每次探测超时为 4 秒，输出上限为 128 KiB；不可运行、超时、权限不足或达到扫描上限等情况显示在 **扫描提示** 中，不影响其他有效结果。自定义位置、无法读取的目录或不兼容当前 macOS 的 Java 可能不会列出，仍可手动填写路径并检测。
+扫描不全盘递归：常见目录有深度限制，最多深入 4096 个目录、接受 128 个不同候选；目录软链接及 Windows junction / reparse point 只检查已知 Java home 结构，不递归深入。每次探测超时为 4 秒，输出上限为 128 KiB；不可运行、超时、权限不足或达到扫描上限等情况显示在 **扫描提示** 中，不影响其他有效结果。自定义位置、无法读取的目录或不兼容当前系统的 Java 可能不会列出，仍可手动填写路径并检测。
 
 ## 项目结构
 
@@ -74,7 +86,8 @@ src-tauri/src/           Rust 后端，按职责拆分
   config.rs              配置读写（便携目录下的 JSON）
   game.rs                .minecraft 目录与版本识别
   java.rs                Java 版本/厂商/架构探测、超时进程管理与命令接口
-  java/discovery.rs      macOS Java 多来源有界扫描、路径去重
+  java/discovery.rs      共享有界扫描、macOS 来源与路径去重
+  java/discovery/windows.rs  Windows 注册表、安装目录与工具运行时来源
   version.rs             版本 json 解析（主类 / tweakClass）
   classpath.rs           classpath 与 natives 解析
   launch.rs              命令行构造 + 进程托管
@@ -89,7 +102,7 @@ src-tauri/src/           Rust 后端，按职责拆分
 ```bash
 npm install
 npm run tauri dev    # 开发（注意：dev 时启动器 cwd 为 src-tauri，需在其下放 .minecraft 才能识别）
-npm run tauri build  # 通用打包；macOS 便携应用使用下面的专用命令
+npm run tauri build  # 通用打包；各平台专用发布命令见下方
 ```
 
 Rust 侧测试：`cd src-tauri && cargo test`（含针对本机真实客户端的 `--ignored` 集成测试）。
@@ -127,3 +140,18 @@ make mac-release
 
 `.minecraft` 必须放在 `.app` **外部同级目录**，而不是 `Contents/MacOS` 内。macOS 打包应用及发布版裸程序按自身位置定位数据，不会主动切换进程工作目录；未打包的 `tauri dev` 保持上面的开发目录约定。
 
+
+## Windows 打包与使用
+
+在 Windows 上安装 Node.js、Rust MSVC 工具链和 Visual Studio C++ 构建工具后运行：
+
+```bash
+make windows-release
+```
+
+该 `.PHONY` 目标复用 `npm run build:windows`（`tauri build --bundles nsis`），先构建前端，再构建当前架构的 release 应用及 NSIS 安装包；与 macOS 发布目标相互独立。
+
+- 应用：`src-tauri/target/release/nova-launcher.exe`
+- 安装包：`src-tauri/target/release/bundle/nsis/Nova Launcher_<版本>_<架构>-setup.exe`
+
+首次运行需要 WebView2 Runtime；NSIS 使用 Tauri 默认的 WebView2 引导安装方式。Windows 仍按进程工作目录寻找 `.minecraft` 和便携配置，使用裸 exe 时请从游戏目录启动。
