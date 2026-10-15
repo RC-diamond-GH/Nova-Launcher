@@ -14,11 +14,25 @@ Minecraft 启动器 MVP（Tauri 2 + Rust + TypeScript），淡蓝色主题。
 
 - `.minecraft` 目录不做设置；macOS 打包应用自动识别 **`Nova Launcher.app` 所在目录**下的 `.minecraft`，不依赖 Finder / Terminal 的工作目录。其他平台及未打包的开发模式仍使用进程工作目录。
 - 版本自动选择：`versions/` 下 jar 修改时间最新的版本
-- classpath：递归收集 `libraries/**/*.jar` + 版本 jar；natives 取 `.minecraft/natives`（或版本目录内 `*natives*`）
+- classpath：按版本 JSON 声明选择存在的非 native 依赖，无 JSON 时才递归收集 `libraries/**/*.jar`，最后追加版本 jar；natives 取 `.minecraft/natives`（或版本目录内 `*natives*`）。Apple Silicon macOS 使用下方专用逻辑。
 - 主类 / tweakClass 自动从版本 json 解析（如 Forge 的 `net.minecraft.launchwrapper.Launch` + `FMLTweaker`），无 json 时按版本名推断
 - 离线用户名（空格转 `_`），配置持久化到与 `.minecraft` 同级的 `nova_launcher_config.json`（便携，不写系统应用配置目录）
 
 暂不支持：正版登录、版本隔离；Java 自动寻找目前仅实现 macOS，其他平台仍可手动浏览、填写路径和检测。
+
+### Apple Silicon macOS 启动
+
+ARM 原生启动器及 Apple Silicon 上经 Rosetta 运行的 Intel 启动器，均按 `mac-dlls/launch-modpack-arm64.py` 的 LWJGL 2 启动方式构造命令。Intel Mac、Windows 和 Linux 保持原启动逻辑。
+
+- 仍自动选择版本目录，不硬编码 `1.6.4`；必须有可读取的版本 JSON，从中读取 `mainClass`、`id` 和 `libraries`。
+- 按 JSON 顺序保留非 native 依赖，不应用旧版 OS rules；移除所有 `org.lwjgl.lwjgl` 依赖（包括 nightly 和工具类），不把 native jar 放入 classpath。
+- 将 `net.java.jinput:jinput`、`net.java.jutils:jutils` 分别替换为 `mac-dlls/dist/jinput-2.0.5.jar`、`jutils-1.0.0.jar`，最后追加该目录的 `lwjgl.jar`、`lwjgl_util.jar` 和原版本 jar。
+- `java.library.path`、`org.lwjgl.librarypath`、`net.java.games.input.librarypath` 均指向整合包同级的 `mac-dlls/dist/natives/`，不回退到旧的 `.minecraft/natives`。
+- 保留内存配置和两个 Forge 兼容参数，使用离线 `--session 0`、`--tweakClass cpw.mods.fml.common.launcher.FMLTweaker`，游戏工作目录仍是 `.minecraft`。不会覆盖原版依赖、游戏 jar 或模组。
+- 缺少声明的依赖 jar、替换 jar 或 ARM natives 目录时，停止启动并报告路径，不静默遗漏依赖。
+
+此分支面向脚本对应的旧版 **LWJGL 2 / Forge 整合包**，不是 LWJGL 3 的通用启动方式。需自行准备脚本配套的 `mac-dlls/dist/` 产物（启动器不会自动下载或构建），并在设置中选择 **arm64 / aarch64 Java 8**；Intel Java 不能加载这些 ARM 动态库。不要额外添加 `-XstartOnFirstThread`。
+
 
 ## macOS Java 自动寻找
 
@@ -83,8 +97,10 @@ Rust 侧测试：`cd src-tauri && cargo test`（含针对本机真实客户端�
 ## macOS 打包与使用
 
 ```bash
-npm run build:macos
+make mac-release
 ```
+
+该 `.PHONY` 目标复用 `npm run build:macos`，构建带 Finder 图标、双击无需 Terminal 的完整 `.app`。
 
 生成的应用位于 `src-tauri/target/release/bundle/macos/Nova Launcher.app`。发布、复制和双击打开的对象必须是完整的 `.app`，它包含 Finder 图标和原生应用启动信息，正常打开不会创建 Terminal 窗口。
 
@@ -96,6 +112,16 @@ npm run build:macos
 游戏目录/
   Nova Launcher.app
   .minecraft/
+  mac-dlls/                 # Apple Silicon 的 LWJGL 2 整合包必需
+    dist/
+      lwjgl.jar
+      lwjgl_util.jar
+      jinput-2.0.5.jar
+      jutils-1.0.0.jar
+      natives/
+        liblwjgl.dylib
+        openal.dylib
+        libjinput-osx.dylib
   nova_launcher_config.json  # 设置修改后自动保存
 ```
 

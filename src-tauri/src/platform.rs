@@ -38,6 +38,22 @@ fn macos_bundle_parent(executable: &std::path::Path) -> Option<&std::path::Path>
     }
 }
 
+/// Also recognizes an Intel launcher running under Rosetta on an ARM Mac.
+pub(crate) fn is_apple_silicon_macos() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        cfg!(target_arch = "aarch64")
+            || Command::new("/usr/sbin/sysctl")
+                .args(["-n", "hw.optional.arm64"])
+                .output()
+                .is_ok_and(|output| output.status.success() && output.stdout == b"1\n")
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
 #[cfg(windows)]
 pub(crate) fn no_window(cmd: &mut Command) {
     use std::os::windows::process::CommandExt;
@@ -57,7 +73,7 @@ pub(crate) fn no_window(_cmd: &mut Command) {}
 #[cfg(windows)]
 pub(crate) fn disable_webview2_autofill(app: &tauri::App) {
     use tauri::Manager;
-    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2_13, ICoreWebView2Profile6};
+    use webview2_com::Microsoft::Web::WebView2::Win32::{ICoreWebView2Profile6, ICoreWebView2_13};
     use windows_core::Interface;
 
     let Some(window) = app.get_webview_window("main") else {
