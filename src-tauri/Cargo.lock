@@ -2142,6 +2142,7 @@ dependencies = [
  "tauri-plugin-opener",
  "webview2-com",
  "windows-core 0.61.2",
+ "winreg",
 ]
 
 [[package]]

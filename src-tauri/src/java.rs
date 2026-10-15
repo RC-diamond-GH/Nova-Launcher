@@ -1,4 +1,4 @@
-//! Java executable probing and bounded, macOS-only installation discovery.
+//! Java executable probing and bounded macOS/Windows installation discovery.
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom};
@@ -11,7 +11,7 @@ use serde::Serialize;
 
 use crate::platform::no_window;
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "macos", windows, test))]
 mod discovery;
 
 const PROBE_TIMEOUT: Duration = Duration::from_secs(4);
@@ -289,13 +289,13 @@ pub(crate) async fn validate_java(java_path: String) -> Result<JavaInfo, String>
 
 #[tauri::command]
 pub(crate) async fn discover_java() -> Result<JavaDiscovery, String> {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", windows))]
     {
         tauri::async_runtime::spawn_blocking(discovery::discover)
             .await
             .map_err(|e| format!("Java 扫描任务失败: {e}"))
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(not(any(target_os = "macos", windows)))]
     {
         Ok(JavaDiscovery {
             supported: false,

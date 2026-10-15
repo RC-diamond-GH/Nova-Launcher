@@ -5,10 +5,25 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 
-use super::{probe_java, run_bounded, JavaDiscovery, JavaInstallation, PROBE_TIMEOUT};
+#[cfg(target_os = "macos")]
+use super::run_bounded;
+use super::{probe_java, JavaDiscovery, JavaInstallation, PROBE_TIMEOUT};
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(super) use windows::discover;
 
 const MAX_DIRECTORIES: usize = 4096;
 const MAX_CANDIDATES: usize = 128;
+#[cfg(windows)]
+const HOME_EXECUTABLES: &[&str] = &[
+    "bin/java.exe",
+    "jre/bin/java.exe",
+    "bin/javaw.exe",
+    "jre/bin/javaw.exe",
+];
+#[cfg(not(windows))]
 const HOME_EXECUTABLES: &[&str] = &[
     "bin/java",
     "Contents/Home/bin/java",
@@ -40,6 +55,19 @@ impl Scanner {
     }
 
     fn candidate(&mut self, path: PathBuf) {
+        // Console and GUI launchers belong to the same JVM. Prefer the console
+        // binary for reliable redirected property output, including PATH entries.
+        #[cfg(windows)]
+        let path = if path
+            .file_name()
+            .and_then(|name| name.to_str())
+            .is_some_and(|name| name.eq_ignore_ascii_case("javaw.exe"))
+            && path.with_file_name("java.exe").is_file()
+        {
+            path.with_file_name("java.exe")
+        } else {
+            path
+        };
         match fs::symlink_metadata(&path) {
             Err(e) if e.kind() == ErrorKind::NotFound => return,
             Err(e) => {
@@ -55,7 +83,9 @@ impl Scanner {
                 return;
             }
         };
-        if path == Path::new("/usr/bin/java") || self.placeholder.as_ref() == Some(&real) {
+        if self.placeholder.as_ref() == Some(&real)
+            || cfg!(target_os = "macos") && path == Path::new("/usr/bin/java")
+        {
             return;
         }
         match fs::metadata(&real) {
@@ -131,7 +161,7 @@ impl Scanner {
         self.directories.insert(canonical);
         for entry in self.entries(path) {
             match fs::symlink_metadata(&entry) {
-                Ok(metadata) if metadata.is_symlink() => match fs::metadata(&entry) {
+                Ok(metadata) if is_directory_link(&metadata) => match fs::metadata(&entry) {
                     Ok(target) if target.is_dir() => self.home(&entry),
                     Ok(_) => {}
                     Err(e) if e.kind() == ErrorKind::NotFound => {}
@@ -144,6 +174,7 @@ impl Scanner {
         }
     }
 
+    #[cfg(target_os = "macos")]
     fn brew(&mut self, root: &Path) {
         for formula in self.entries(root) {
             let name = formula
@@ -166,6 +197,7 @@ impl Scanner {
         }
     }
 
+    #[cfg(target_os = "macos")]
     fn java_home(&mut self) {
         match run_bounded(Path::new("/usr/libexec/java_home"), &["-V"], PROBE_TIMEOUT) {
             Ok(output) => {
@@ -190,15 +222,30 @@ impl Scanner {
         let mut installations = Vec::new();
         for path in &self.candidates {
             match probe_java(path, PROBE_TIMEOUT) {
-                Ok(info) => installations.push(JavaInstallation {
-                    // candidate() already checked that this is losslessly serializable.
-                    path: path.to_str().unwrap().to_string(),
-                    info,
-                }),
+                Ok(info) => {
+                    // Oracle javapath launchers and a JDK's bundled JRE can
+                    // resolve to distinct files while loading the same JVM.
+                    #[cfg(windows)]
+                    let runtime_path = super::property(&info.raw, "java.home")
+                        .and_then(|home| fs::canonicalize(Path::new(home).join("bin/java.exe")).ok())
+                        .filter(|path| path.is_file() && path.to_str().is_some());
+                    #[cfg(windows)]
+                    let path = runtime_path.as_deref().unwrap_or(path);
+                    installations.push(JavaInstallation {
+                        // Both candidate() and runtime_path checked UTF-8.
+                        path: path.to_str().unwrap().to_string(),
+                        info,
+                    });
+                }
                 Err(e) => {
                     self.warnings.insert(e);
                 }
             }
+        }
+        #[cfg(windows)]
+        {
+            installations.sort_unstable_by(|a, b| a.path.cmp(&b.path));
+            installations.dedup_by(|a, b| a.path == b.path);
         }
         JavaDiscovery {
             supported: true,
@@ -208,6 +255,20 @@ impl Scanner {
     }
 }
 
+fn is_directory_link(metadata: &fs::Metadata) -> bool {
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        // Junctions and mount points are reparse points, not necessarily symlinks.
+        metadata.file_attributes() & 0x400 != 0
+    }
+    #[cfg(not(windows))]
+    {
+        metadata.is_symlink()
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
 fn java_home_paths(text: &str) -> BTreeSet<PathBuf> {
     text.lines()
         .filter_map(|line| {
@@ -222,6 +283,7 @@ fn java_home_paths(text: &str) -> BTreeSet<PathBuf> {
         .collect()
 }
 
+#[cfg(target_os = "macos")]
 pub(super) fn discover() -> JavaDiscovery {
     let mut scanner = Scanner::new(fs::canonicalize("/usr/bin/java").ok());
     scanner.java_home();
@@ -299,6 +361,7 @@ pub(super) fn discover() -> JavaDiscovery {
     scanner.finish()
 }
 
+#[cfg(target_os = "macos")]
 fn scan_apps(scanner: &mut Scanner, root: &Path) {
     for entry in scanner.entries(root) {
         let is_bundle = entry
@@ -357,6 +420,60 @@ mod tests {
         scanner.tree(&root.join("missing"), 4);
         assert!(scanner.warnings.is_empty());
         assert!(scanner.candidates.is_empty());
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn console_and_gui_candidates_share_one_runtime_but_gui_only_is_kept() {
+        let root = crate::fixtures::fixture("java-windows-launchers");
+        let console = root.join("JDK 空格/bin/java.exe");
+        let gui = root.join("JDK 空格/bin/javaw.exe");
+        let gui_only = root.join("legacy/jre/bin/javaw.exe");
+        for path in [&console, &gui, &gui_only] {
+            crate::fixtures::touch(path);
+        }
+        let mut scanner = Scanner::new(None);
+        scanner.home(&root.join("JDK 空格"));
+        scanner.candidate(gui);
+        scanner.home(&root.join("legacy"));
+        assert_eq!(
+            scanner.candidates,
+            BTreeSet::from([
+                fs::canonicalize(console).unwrap(),
+                fs::canonicalize(gui_only).unwrap(),
+            ])
+        );
+        assert!(scanner.warnings.is_empty());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn junction_homes_are_inspected_without_recursing_into_the_target() {
+        let root = crate::fixtures::fixture("java-windows-junction");
+        let scanned = root.join("scanned");
+        let target = root.join("outside");
+        let direct = target.join("bin/java.exe");
+        crate::fixtures::touch(&direct);
+        crate::fixtures::touch(&target.join("unrelated/nested/bin/java.exe"));
+        fs::create_dir_all(&scanned).unwrap();
+        let link = scanned.join("linked");
+        let output = std::process::Command::new("cmd.exe")
+            .args(["/D", "/C", "mklink", "/J"])
+            .arg(&link)
+            .arg(&target)
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{output:?}");
+        let mut scanner = Scanner::new(None);
+        scanner.tree(&scanned, 8);
+        assert_eq!(
+            scanner.candidates,
+            BTreeSet::from([fs::canonicalize(direct).unwrap()])
+        );
+        assert!(scanner.warnings.is_empty());
+        fs::remove_dir(link).unwrap();
+        fs::remove_dir_all(root).unwrap();
     }
 
     #[cfg(unix)]

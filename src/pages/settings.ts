@@ -1,4 +1,4 @@
-/** Settings form, Java validation, and macOS runtime discovery. */
+/** Settings form, Java validation, and macOS/Windows runtime discovery. */
 
 import * as backend from "../api/backend";
 import type { JavaInfo, JavaInstallation } from "../api/types";
@@ -95,7 +95,7 @@ export async function scanJava(): Promise<void> {
     installations = result.installations;
     renderJavaResults();
     javaScanStatus.textContent = !result.supported
-      ? "自动寻找目前仅支持 macOS；仍可手动浏览或填写 Java 路径。"
+      ? "自动寻找目前支持 Windows 和 macOS；仍可手动浏览或填写 Java 路径。"
       : installations.length > 0
         ? `找到 ${installations.length} 个 Java。选用后自动保存，不会自动覆盖当前路径。`
         : "未找到可运行的 Java；可安装 JDK 后重新扫描，或手动填写路径并检测。";

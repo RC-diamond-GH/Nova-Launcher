@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "build:macos": "tauri build --bundles app",
+    "build:windows": "tauri build --bundles nsis",
     "preview": "vite preview",
     "tauri": "tauri"
   },
