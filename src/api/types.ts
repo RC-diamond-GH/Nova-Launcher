@@ -15,7 +15,20 @@ export interface GameSetup {
 export interface JavaInfo {
   version: string;
   is_64bit: boolean;
+  architecture: string;
+  vendor: string;
   raw: string;
+}
+
+export interface JavaInstallation {
+  path: string;
+  info: JavaInfo;
+}
+
+export interface JavaDiscovery {
+  supported: boolean;
+  installations: JavaInstallation[];
+  warnings: string[];
 }
 
 export interface LaunchHandle {

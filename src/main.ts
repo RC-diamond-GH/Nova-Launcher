@@ -3,7 +3,7 @@
 import { loadSavedConfig } from "./config";
 import { initHomePage, refreshDetect } from "./pages/home";
 import { initLogsPage } from "./pages/logs";
-import { initSettingsPage } from "./pages/settings";
+import { initSettingsPage, scanJava } from "./pages/settings";
 import { initNav } from "./ui/nav";
 import { syncProfile } from "./ui/profile";
 
@@ -15,6 +15,7 @@ async function init(): Promise<void> {
 
   await loadSavedConfig();
   syncProfile();
+  void scanJava();
   await refreshDetect();
 }
 

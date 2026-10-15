@@ -7,7 +7,7 @@ Minecraft 启动器 MVP（Tauri 2 + Rust + TypeScript），淡蓝色主题。
 左侧窄图标栏切换三个页面：
 
 - **主页**：玩家名 + 启动按钮
-- **设置**：玩家名、Java 可执行文件（浏览/`-version` 检测）、内存分配
+- **设置**：玩家名、Java 可执行文件（浏览/检测）、macOS 本机 Java 自动寻找与选用、内存分配
 - **日志**：启用日志采集开关（下次启动生效）、导出日志按钮、实时日志
 
 ## 启动逻辑
@@ -18,7 +18,22 @@ Minecraft 启动器 MVP（Tauri 2 + Rust + TypeScript），淡蓝色主题。
 - 主类 / tweakClass 自动从版本 json 解析（如 Forge 的 `net.minecraft.launchwrapper.Launch` + `FMLTweaker`），无 json 时按版本名推断
 - 离线用户名（空格转 `_`），配置持久化到与 `.minecraft` 同级的 `nova_launcher_config.json`（便携，不写系统应用配置目录）
 
-第一版不做：自动寻找 Java、正版登录、版本隔离。
+暂不支持：正版登录、版本隔离；Java 自动寻找目前仅实现 macOS，其他平台仍可手动浏览、填写路径和检测。
+
+## macOS Java 自动寻找
+
+启动器恢复配置后自动扫描；在 **设置 → 本机 Java** 查看 Java 可执行文件的完整路径、版本、厂商及指令集架构（如 `arm64`、`x86_64`、`x86`）。点击 **选用** 将路径填入现有设置并自动保存；扫描和重新扫描本身不会覆盖当前选择。
+
+扫描来源：
+
+- macOS `/usr/libexec/java_home -V`、系统与用户的 `JavaVirtualMachines` 目录、旧版 Apple Java 和 Java 插件目录。
+- `JAVA_HOME`、`PATH`，以及 `/opt/homebrew` 和 `/usr/local` 下 Homebrew 的 `opt` / `Cellar` JDK。
+- SDKMAN、asdf、mise/rtx、jabba、jenv、Gradle 的常见 Java 目录；支持 SDKMAN、asdf、mise、jabba 的自定义根目录环境变量。
+- Minecraft、PrismLauncher、PolyMC 的常见运行时目录，以及 `/Applications`、`~/Applications` 下常见应用内置的 JBR/JRE。
+
+每个候选实际运行 `-XshowSettings:properties -version`，从 JVM 输出读取信息；仅在旧 JVM 明确不支持该选项时回退 `-version`，无法确认的架构显示为“未知”，不会拿本机 CPU 架构代替 JVM 架构。结果按真实可执行文件路径去重，忽略 macOS `/usr/bin/java` 安装占位程序。
+
+扫描不全盘递归：常见目录有深度限制，最多深入 4096 个目录、接受 128 个不同候选；目录软链接只检查已知 Java home 结构，不递归。每次探测超时为 4 秒，输出上限为 128 KiB；不可运行、超时、权限不足或达到扫描上限等情况显示在 **扫描提示** 中，不影响其他有效结果。自定义位置、无法读取的目录或不兼容当前 macOS 的 Java 可能不会列出，仍可手动填写路径并检测。
 
 ## 项目结构
 
@@ -35,7 +50,7 @@ src/                     前端（TypeScript + Vite，无框架）
   ui/profile.ts          主页玩家卡
   ui/memory.ts           内存滑块与数字输入联动
   pages/home.ts          主页：启动按钮、game-log / game-exit 事件
-  pages/settings.ts      设置页：表单绑定、Java 浏览与检测
+  pages/settings.ts      设置页：表单绑定、Java 浏览/检测、自动寻找与选用
   pages/logs.ts          日志页：采集开关、实时控制台、导出
   styles.css             样式入口（@import 下按页面拆分的片段）
   styles/*.css           base / sidebar / home / settings / logs / buttons
@@ -44,7 +59,8 @@ src-tauri/src/           Rust 后端，按职责拆分
   lib.rs                 模块声明 + Tauri 启动（命令注册、Windows WebView2 修正）
   config.rs              配置读写（便携目录下的 JSON）
   game.rs                .minecraft 目录与版本识别
-  java.rs                java -version 探测
+  java.rs                Java 版本/厂商/架构探测、超时进程管理与命令接口
+  java/discovery.rs      macOS Java 多来源有界扫描、路径去重
   version.rs             版本 json 解析（主类 / tweakClass）
   classpath.rs           classpath 与 natives 解析
   launch.rs              命令行构造 + 进程托管

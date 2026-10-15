@@ -7,7 +7,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
-import type { GameSetup, JavaInfo, LauncherConfig, LaunchHandle } from "./types";
+import type { GameSetup, JavaDiscovery, JavaInfo, LauncherConfig, LaunchHandle } from "./types";
 
 export function loadConfig(): Promise<LauncherConfig | null> {
   return invoke<LauncherConfig | null>("load_config");
@@ -23,6 +23,10 @@ export function detectSetup(): Promise<GameSetup> {
 
 export function validateJava(javaPath: string): Promise<JavaInfo> {
   return invoke<JavaInfo>("validate_java", { javaPath });
+}
+
+export function discoverJava(): Promise<JavaDiscovery> {
+  return invoke<JavaDiscovery>("discover_java");
 }
 
 export function writeLogFile(path: string, content: string): Promise<void> {
@@ -46,7 +50,7 @@ export async function pickJavaExecutable(): Promise<string | null> {
   const picked = await open({
     multiple: false,
     title: "选择 Java 可执行文件",
-    filters: [{ name: "Java 可执行文件", extensions: ["exe"] }],
+    filters: [{ name: "Java 可执行文件", extensions: ["exe", "*"] }],
   });
   return typeof picked === "string" && picked ? picked : null;
 }

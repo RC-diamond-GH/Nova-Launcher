@@ -34,6 +34,7 @@ pub fn run() {
             config::save_config,
             game::detect_setup,
             java::validate_java,
+            java::discover_java,
             log_export::write_log_file,
             launch::launch
         ])
