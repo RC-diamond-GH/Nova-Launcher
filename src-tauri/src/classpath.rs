@@ -77,6 +77,52 @@ pub(crate) fn classpath_from_json(game_dir: &Path, json: &serde_json::Value) -> 
         .collect()
 }
 
+/// The script's LWJGL 2 ARM replacement set. Do not apply legacy OS rules:
+/// every declared non-native dependency must exist, and every old LWJGL variant
+/// must be removed before appending the matching ARM Java API jars.
+pub(crate) fn apple_silicon_classpath(
+    game_dir: &Path,
+    json: &serde_json::Value,
+    dist: &Path,
+) -> Result<Vec<PathBuf>, String> {
+    let libraries = json
+        .get("libraries")
+        .and_then(|value| value.as_array())
+        .ok_or_else(|| "版本 JSON 缺少 libraries 列表".to_string())?;
+    let mut classpath = Vec::with_capacity(libraries.len() + 2);
+    for library in libraries {
+        if library.get("natives").is_some() {
+            continue;
+        }
+        let name = library
+            .get("name")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "版本 JSON 中的 library 缺少 name".to_string())?;
+        let mut parts = name.split(':');
+        let group = parts.next().unwrap_or_default();
+        let artifact = parts.next().unwrap_or_default();
+        if group == "org.lwjgl.lwjgl" {
+            continue;
+        }
+        let path = match (group, artifact) {
+            ("net.java.jinput", "jinput") => dist.join("jinput-2.0.5.jar"),
+            ("net.java.jutils", "jutils") => dist.join("jutils-1.0.0.jar"),
+            _ => game_dir
+                .join("libraries")
+                .join(maven_path(name).ok_or_else(|| format!("无法解析 library 坐标: {name}"))?),
+        };
+        classpath.push(path);
+    }
+    classpath.push(dist.join("lwjgl.jar"));
+    classpath.push(dist.join("lwjgl_util.jar"));
+    for path in &classpath {
+        if !path.is_file() {
+            return Err(format!("启动依赖 jar 不存在: {}", path.display()));
+        }
+    }
+    Ok(classpath)
+}
+
 /// Recursively collects every `*.jar` under `dir`.
 pub(crate) fn collect_jars(dir: &Path, out: &mut Vec<PathBuf>) {
     let Ok(entries) = fs::read_dir(dir) else {

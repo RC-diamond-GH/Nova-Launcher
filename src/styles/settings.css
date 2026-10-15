@@ -1,8 +1,9 @@
 /* ---- 设置 ---- */
 
 .page-settings.active {
-  align-items: center;
+  align-items: safe center;
   justify-content: center;
+  overflow-y: auto;
 }
 
 .settings-card {
@@ -91,4 +92,80 @@ input[type="checkbox"] {
 
 .hint.bad {
   color: #c5221f;
+}
+
+.java-discovery {
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+
+.java-discovery-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.java-results {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 210px;
+  overflow-y: auto;
+}
+
+.java-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.java-result:last-child {
+  border-bottom: 0;
+}
+
+.java-result-description {
+  flex: 1;
+  min-width: 0;
+}
+
+.java-result-title {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.java-result-path {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.java-result .btn {
+  flex-shrink: 0;
+}
+
+.java-discovery details {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.java-discovery summary {
+  cursor: pointer;
+}
+
+.java-scan-warnings {
+  margin: 6px 0 0;
+  padding-left: 20px;
+  max-height: 100px;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
 }

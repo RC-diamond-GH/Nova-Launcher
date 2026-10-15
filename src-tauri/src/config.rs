@@ -1,4 +1,4 @@
-//! Portable settings: one JSON file in the process working directory, next to
+//! Portable settings: one JSON file in the launcher directory, next to
 //! the `.minecraft` that [`crate::game`] auto-detects.
 
 use std::fs;
@@ -35,10 +35,9 @@ fn config_path_in(dir: &Path) -> PathBuf {
     dir.join(CONFIG_FILE_NAME)
 }
 
-/// No directory creation: the process working directory always exists.
+/// No directory creation: the launcher directory already exists.
 fn config_file() -> Result<PathBuf, String> {
-    let cwd = std::env::current_dir().map_err(|e| format!("无法获取程序运行目录: {e}"))?;
-    Ok(config_path_in(&cwd))
+    Ok(config_path_in(&crate::platform::launcher_dir()?))
 }
 
 fn load_config_from(path: &Path) -> Option<LauncherConfig> {

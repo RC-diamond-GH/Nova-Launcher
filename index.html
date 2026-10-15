@@ -74,13 +74,13 @@
               />
             </label>
 
-            <label class="field">
-              <span class="label">Java 可执行文件</span>
+            <div class="field">
+              <label class="label" for="java-path">Java 可执行文件</label>
               <div class="inline">
                 <input
                   id="java-path"
                   type="text"
-                  placeholder="例如 C:\Program Files\Java\jre1.8.0_491\bin\javaw.exe"
+                  placeholder="Java 可执行文件的完整路径，例如 /…/Contents/Home/bin/java"
                   autocomplete="off"
                   spellcheck="false"
                   autocorrect="off"
@@ -89,8 +89,21 @@
                 <button id="java-browse" class="btn" type="button">浏览</button>
                 <button id="java-check" class="btn" type="button">检测</button>
               </div>
-              <em id="java-info" class="hint"></em>
-            </label>
+              <em id="java-info" class="hint" role="status"></em>
+            </div>
+
+            <section class="field java-discovery" aria-label="自动寻找 Java">
+              <div class="java-discovery-heading">
+                <span class="label">本机 Java</span>
+                <button id="java-scan" class="btn small" type="button">重新扫描</button>
+              </div>
+              <p id="java-scan-status" class="hint" role="status"></p>
+              <ul id="java-results" class="java-results" aria-label="已发现的 Java"></ul>
+              <details id="java-scan-details" hidden>
+                <summary>扫描提示</summary>
+                <ul id="java-scan-warnings" class="java-scan-warnings"></ul>
+              </details>
+            </section>
 
             <label class="field">
               <span class="label">内存分配 <b id="mem-label">2048 MB</b></span>

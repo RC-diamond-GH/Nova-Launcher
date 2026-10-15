@@ -7,7 +7,7 @@
 //! - [`classpath`] — which jars and natives the game starts with
 //! - [`launch`] — command-line construction and process supervision
 //! - [`log_export`] — writing captured console output to disk
-//! - [`platform`] — OS-specific process/window hygiene
+//! - [`platform`] — OS-specific portable paths and process/window hygiene
 
 mod classpath;
 mod config;
@@ -34,6 +34,7 @@ pub fn run() {
             config::save_config,
             game::detect_setup,
             java::validate_java,
+            java::discover_java,
             log_export::write_log_file,
             launch::launch
         ])

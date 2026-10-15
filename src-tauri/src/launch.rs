@@ -10,11 +10,11 @@ use parking_lot::Mutex;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 
-use crate::classpath::{classpath_from_json, collect_jars, find_natives};
+use crate::classpath::{apple_silicon_classpath, classpath_from_json, collect_jars, find_natives};
 use crate::config::LauncherConfig;
 use crate::game::{detect_game_dir, pick_version_in};
-use crate::platform::no_window;
-use crate::version::{launch_style, read_version_json};
+use crate::platform::{is_apple_silicon_macos, no_window};
+use crate::version::{launch_style, read_version_json, LaunchStyle};
 
 #[derive(Debug, Serialize)]
 pub(crate) struct LaunchHandle {
@@ -50,6 +50,15 @@ pub(crate) fn build_launch_plan(
     game_dir: &Path,
     version_id: &str,
 ) -> Result<LaunchPlan, String> {
+    build_launch_plan_for_platform(config, game_dir, version_id, is_apple_silicon_macos())
+}
+
+fn build_launch_plan_for_platform(
+    config: &LauncherConfig,
+    game_dir: &Path,
+    version_id: &str,
+    apple_silicon: bool,
+) -> Result<LaunchPlan, String> {
     let java = Path::new(&config.java_path);
     if !java.is_file() {
         return Err(format!("Java 可执行文件不存在: {}", config.java_path));
@@ -74,27 +83,61 @@ pub(crate) fn build_launch_plan(
         return Err(format!("版本 jar 不存在: {}", version_jar.display()));
     }
 
-    let natives = find_natives(game_dir, version_id)
-        .ok_or_else(|| "未找到 natives 目录（.minecraft/natives 或版本目录内）".to_string())?;
-
     let version_json = read_version_json(game_dir, version_id);
-
-    // json-declared libraries; scan fallback only when the json is absent
-    let mut classpath = match &version_json {
-        Some(json) => classpath_from_json(game_dir, json),
-        None => {
-            let mut jars = Vec::new();
-            collect_jars(&game_dir.join("libraries"), &mut jars);
-            jars.sort();
-            jars
+    let (natives, mut classpath, style, launch_version) = if apple_silicon {
+        let json = version_json
+            .as_ref()
+            .ok_or_else(|| "Apple Silicon 启动需要可读取的版本 JSON".to_string())?;
+        let dist = game_dir
+            .parent()
+            .ok_or_else(|| "无法获取整合包所在目录".to_string())?
+            .join("mac-dlls/dist");
+        let natives = dist.join("natives");
+        if !natives.is_dir() {
+            return Err(format!("ARM natives 目录不存在: {}", natives.display()));
         }
+        let main_class = json
+            .get("mainClass")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "版本 JSON 缺少 mainClass".to_string())?;
+        let id = json
+            .get("id")
+            .and_then(|value| value.as_str())
+            .ok_or_else(|| "版本 JSON 缺少 id".to_string())?;
+        (
+            natives,
+            apple_silicon_classpath(game_dir, json, &dist)?,
+            LaunchStyle {
+                main_class: main_class.to_string(),
+                tweak_class: Some("cpw.mods.fml.common.launcher.FMLTweaker".to_string()),
+            },
+            id,
+        )
+    } else {
+        let natives = find_natives(game_dir, version_id)
+            .ok_or_else(|| "未找到 natives 目录（.minecraft/natives 或版本目录内）".to_string())?;
+        // Scan fallback only when the JSON is absent.
+        let classpath = match &version_json {
+            Some(json) => classpath_from_json(game_dir, json),
+            None => {
+                let mut jars = Vec::new();
+                collect_jars(&game_dir.join("libraries"), &mut jars);
+                jars.sort();
+                jars
+            }
+        };
+        if classpath.is_empty() {
+            return Err("classpath 为空：libraries 中没有 json 声明且存在的 jar".to_string());
+        }
+        (
+            natives,
+            classpath,
+            launch_style(version_json.as_ref(), version_id),
+            version_id,
+        )
     };
-    if classpath.is_empty() {
-        return Err("classpath 为空：libraries 中没有 json 声明且存在的 jar".to_string());
-    }
     classpath.push(version_jar);
 
-    let style = launch_style(version_json.as_ref(), version_id);
     let sep = if cfg!(windows) { ";" } else { ":" };
     let classpath_str = classpath
         .iter()
@@ -107,20 +150,33 @@ pub(crate) fn build_launch_plan(
         "-Dfml.ignoreInvalidMinecraftCertificates=true".to_string(),
         "-Dfml.ignorePatchDiscrepancies=true".to_string(),
         format!("-Djava.library.path={}", natives.display()),
+    ];
+    if apple_silicon {
+        args.push(format!("-Dorg.lwjgl.librarypath={}", natives.display()));
+        args.push(format!(
+            "-Dnet.java.games.input.librarypath={}",
+            natives.display()
+        ));
+    }
+    args.extend([
         "-cp".to_string(),
         classpath_str,
         style.main_class,
         "--username".to_string(),
         username,
         "--session".to_string(),
-        offline_session(),
+        if apple_silicon {
+            "0".to_string()
+        } else {
+            offline_session()
+        },
         "--version".to_string(),
-        version_id.to_string(),
+        launch_version.to_string(),
         "--gameDir".to_string(),
         game_dir.display().to_string(),
         "--assetsDir".to_string(),
         game_dir.join("assets").display().to_string(),
-    ];
+    ]);
     if let Some(tweak) = style.tweak_class {
         args.push("--tweakClass".to_string());
         args.push(tweak);
@@ -199,13 +255,121 @@ pub(crate) fn launch(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fixtures::{arg_index, config_for, forge_dir, touch};
+    use crate::fixtures::{arg_index, config_for, fixture, forge_dir, touch};
     use std::fs;
+
+    fn legacy_launch_plan(
+        config: &LauncherConfig,
+        game_dir: &Path,
+        version_id: &str,
+    ) -> Result<LaunchPlan, String> {
+        build_launch_plan_for_platform(config, game_dir, version_id, false)
+    }
+
+    fn arm_client(tag: &str) -> (PathBuf, PathBuf, LauncherConfig) {
+        let root = fixture(tag);
+        let game = root.join("客户端 空格/.minecraft");
+        let dist = game.parent().unwrap().join("mac-dlls/dist");
+        touch(&game.join("versions/pack/pack.jar"));
+        fs::write(
+            game.join("versions/pack/pack.json"),
+            r#"{"id":"1.6.4","mainClass":"net.minecraft.launchwrapper.Launch","libraries":[
+                {"name":"net.minecraft:launchwrapper:1.8","rules":[{"action":"disallow"}]},
+                {"name":"org.lwjgl.lwjgl:lwjgl:2.9.0"},
+                {"name":"org.lwjgl.lwjgl:lwjgl:2.9.1-nightly-debug3"},
+                {"name":"org.lwjgl.lwjgl:lwjgl_util:2.9.0"},
+                {"name":"net.java.jinput:jinput:2.0.5"},
+                {"name":"net.java.jutils:jutils:1.0.0"},
+                {"name":"net.java.jinput:jinput-platform:2.0.5","natives":{"osx":"natives-osx"}}
+            ]}"#,
+        )
+        .unwrap();
+        touch(&game.join("libraries/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar"));
+        for jar in [
+            "lwjgl.jar",
+            "lwjgl_util.jar",
+            "jinput-2.0.5.jar",
+            "jutils-1.0.0.jar",
+        ] {
+            touch(&dist.join(jar));
+        }
+        fs::create_dir_all(dist.join("natives")).unwrap();
+        // A legacy natives directory must not shadow the ARM directory.
+        fs::create_dir_all(game.join("natives")).unwrap();
+        let mut config = config_for(&game);
+        config.java_path = game.join("versions/pack/pack.jar").display().to_string();
+        (game, dist, config)
+    }
+
+    #[test]
+    fn arm_replaces_all_legacy_lwjgl_and_input_dependencies() {
+        let (game, dist, config) = arm_client("arm-replacements");
+        let plan = build_launch_plan_for_platform(&config, &game, "pack", true).unwrap();
+        let cp = arg_index(&plan, "-cp");
+        let jars: Vec<PathBuf> = std::env::split_paths(&plan.args[cp + 1]).collect();
+        assert_eq!(
+            jars,
+            [
+                game.join("libraries/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar"),
+                dist.join("jinput-2.0.5.jar"),
+                dist.join("jutils-1.0.0.jar"),
+                dist.join("lwjgl.jar"),
+                dist.join("lwjgl_util.jar"),
+                game.join("versions/pack/pack.jar"),
+            ]
+        );
+        assert_eq!(plan.cwd, game);
+        for property in [
+            "java.library.path",
+            "org.lwjgl.librarypath",
+            "net.java.games.input.librarypath",
+        ] {
+            assert!(plan.args[..cp]
+                .contains(&format!("-D{property}={}", dist.join("natives").display())));
+        }
+        assert_eq!(plan.args[cp + 2], "net.minecraft.launchwrapper.Launch");
+        assert_eq!(plan.args[arg_index(&plan, "--session") + 1], "0");
+        assert_eq!(plan.args[arg_index(&plan, "--version") + 1], "1.6.4");
+        assert_eq!(
+            plan.args[arg_index(&plan, "--tweakClass") + 1],
+            "cpw.mods.fml.common.launcher.FMLTweaker"
+        );
+    }
+
+    #[test]
+    fn arm_missing_dependencies_never_fall_back_to_legacy_files() {
+        let (game, dist, config) = arm_client("arm-missing");
+        for path in [
+            dist.join("lwjgl.jar"),
+            dist.join("lwjgl_util.jar"),
+            dist.join("jinput-2.0.5.jar"),
+            dist.join("jutils-1.0.0.jar"),
+            game.join("libraries/net/minecraft/launchwrapper/1.8/launchwrapper-1.8.jar"),
+        ] {
+            fs::remove_file(&path).unwrap();
+            let error = build_launch_plan_for_platform(&config, &game, "pack", true)
+                .err()
+                .expect("missing jar must prevent launch");
+            assert!(error.contains(&path.display().to_string()), "{error}");
+            touch(&path);
+        }
+        fs::remove_dir(dist.join("natives")).unwrap();
+        let error = build_launch_plan_for_platform(&config, &game, "pack", true)
+            .err()
+            .expect("legacy natives must not be used");
+        assert!(
+            error.contains(&dist.join("natives").display().to_string()),
+            "{error}"
+        );
+        fs::create_dir_all(dist.join("natives")).unwrap();
+        fs::remove_file(game.join("versions/pack/pack.json")).unwrap();
+        assert!(build_launch_plan_for_platform(&config, &game, "pack", true).is_err());
+    }
 
     #[test]
     fn launch_plan_full() {
         let root = forge_dir("full");
-        let plan = build_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
+        let plan = legacy_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
 
         assert_eq!(
             plan.program,
@@ -225,14 +389,13 @@ mod tests {
         // classpath: json order, version jar last, exactly the declared set
         let cp = arg_index(&plan, "-cp");
         let classpath = &plan.args[cp + 1];
-        let jars: Vec<&str> = classpath.split(';').collect();
+        let jars: Vec<PathBuf> = std::env::split_paths(classpath).collect();
         assert_eq!(jars.len(), 5, "got {jars:?}");
         assert!(jars[0].ends_with("OptiFine-1.6.4_HD_U_C5.jar"));
         assert!(jars[1].ends_with("jopt-simple-4.5.jar"));
         assert!(jars[2].ends_with("launchwrapper-1.8.jar"));
         assert!(jars[3].ends_with("lwjgl-2.9.0.jar"));
         assert!(jars[4].ends_with("1.6.4-forge.jar"));
-        assert!(classpath.contains(';') || !cfg!(windows));
 
         // main class from json
         assert_eq!(plan.args[cp + 2], "net.minecraft.launchwrapper.Launch");
@@ -266,9 +429,12 @@ mod tests {
     #[test]
     fn classpath_follows_json_not_disk() {
         let root = forge_dir("shadow");
-        let plan = build_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
+        let plan = legacy_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
         let cp = &plan.args[arg_index(&plan, "-cp") + 1];
-        assert!(!cp.contains("jopt-simple-4.4"), "stale jopt-simple leaked: {cp}");
+        assert!(
+            !cp.contains("jopt-simple-4.4"),
+            "stale jopt-simple leaked: {cp}"
+        );
         assert!(!cp.contains("nightly"), "nightly jar leaked: {cp}");
         assert!(!cp.contains("lwjgl-platform"), "natives entry leaked: {cp}");
         assert!(!cp.contains("absent"), "missing-on-disk entry leaked: {cp}");
@@ -281,26 +447,26 @@ mod tests {
 
         let mut c = base.clone();
         c.java_path = root.join("missing.exe").display().to_string();
-        assert!(build_launch_plan(&c, &root, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&c, &root, "1.6.4-forge").is_err());
 
         let mut c = base.clone();
         c.memory_mb = 256;
-        assert!(build_launch_plan(&c, &root, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&c, &root, "1.6.4-forge").is_err());
 
         let mut c = base.clone();
         c.username = "   ".to_string();
-        assert!(build_launch_plan(&c, &root, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&c, &root, "1.6.4-forge").is_err());
 
-        assert!(build_launch_plan(&base, &root, "unknown").is_err());
+        assert!(legacy_launch_plan(&base, &root, "unknown").is_err());
         let nowhere = root.join("nowhere");
-        assert!(build_launch_plan(&base, &nowhere, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&base, &nowhere, "1.6.4-forge").is_err());
     }
 
     #[test]
     fn vanilla_version_without_json_uses_heuristic() {
         let root = forge_dir("vanilla");
         touch(&root.join("versions/1.6.4/1.6.4.jar"));
-        let plan = build_launch_plan(&config_for(&root), &root, "1.6.4").unwrap();
+        let plan = legacy_launch_plan(&config_for(&root), &root, "1.6.4").unwrap();
         let cp = arg_index(&plan, "-cp");
         assert_eq!(plan.args[cp + 2], "net.minecraft.client.main.Main");
         assert!(!plan.args.iter().any(|a| a == "--tweakClass"));
@@ -310,14 +476,14 @@ mod tests {
     fn missing_natives_is_an_error() {
         let root = forge_dir("nonatives");
         fs::remove_dir_all(root.join("natives")).unwrap();
-        assert!(build_launch_plan(&config_for(&root), &root, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&config_for(&root), &root, "1.6.4-forge").is_err());
     }
 
     #[test]
     fn empty_libraries_is_an_error() {
         let root = forge_dir("nolibs");
         fs::remove_dir_all(root.join("libraries")).unwrap();
-        assert!(build_launch_plan(&config_for(&root), &root, "1.6.4-forge").is_err());
+        assert!(legacy_launch_plan(&config_for(&root), &root, "1.6.4-forge").is_err());
     }
 
     #[test]
@@ -326,7 +492,7 @@ mod tests {
         fs::remove_dir_all(root.join("natives")).unwrap();
         fs::create_dir_all(root.join("versions/1.6.4-forge/1.6.4-forge-natives-1234")).unwrap();
 
-        let plan = build_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
+        let plan = legacy_launch_plan(&config_for(&root), &root, "1.6.4-forge").unwrap();
         let natives = plan
             .args
             .iter()
