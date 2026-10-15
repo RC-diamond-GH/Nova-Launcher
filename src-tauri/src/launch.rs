@@ -225,14 +225,13 @@ mod tests {
         // classpath: json order, version jar last, exactly the declared set
         let cp = arg_index(&plan, "-cp");
         let classpath = &plan.args[cp + 1];
-        let jars: Vec<&str> = classpath.split(';').collect();
+        let jars: Vec<PathBuf> = std::env::split_paths(classpath).collect();
         assert_eq!(jars.len(), 5, "got {jars:?}");
         assert!(jars[0].ends_with("OptiFine-1.6.4_HD_U_C5.jar"));
         assert!(jars[1].ends_with("jopt-simple-4.5.jar"));
         assert!(jars[2].ends_with("launchwrapper-1.8.jar"));
         assert!(jars[3].ends_with("lwjgl-2.9.0.jar"));
         assert!(jars[4].ends_with("1.6.4-forge.jar"));
-        assert!(classpath.contains(';') || !cfg!(windows));
 
         // main class from json
         assert_eq!(plan.args[cp + 2], "net.minecraft.launchwrapper.Launch");

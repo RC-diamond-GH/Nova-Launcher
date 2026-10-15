@@ -1,6 +1,42 @@
-//! OS-specific process/window hygiene.
+//! OS-specific portable paths and process/window hygiene.
 
+use std::path::PathBuf;
 use std::process::Command;
+
+/// Finder does not preserve the directory containing a macOS application.
+/// Keep portable data beside the .app, never inside Contents or relative to Finder's cwd.
+pub(crate) fn launcher_dir() -> Result<PathBuf, String> {
+    #[cfg(target_os = "macos")]
+    {
+        let executable = std::env::current_exe().map_err(|e| format!("无法获取启动器路径: {e}"))?;
+        if let Some(dir) = macos_bundle_parent(&executable) {
+            return Ok(dir.to_path_buf());
+        }
+        // Unbundled development keeps the existing `tauri dev` cwd convention.
+        if !cfg!(debug_assertions) {
+            return executable
+                .parent()
+                .map(std::path::Path::to_path_buf)
+                .ok_or_else(|| "无法获取启动器所在目录".to_string());
+        }
+    }
+    std::env::current_dir().map_err(|e| format!("无法获取程序运行目录: {e}"))
+}
+
+#[cfg(target_os = "macos")]
+fn macos_bundle_parent(executable: &std::path::Path) -> Option<&std::path::Path> {
+    let macos = executable.parent()?;
+    let contents = macos.parent()?;
+    let bundle = contents.parent()?;
+    if macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app"
+    {
+        bundle.parent()
+    } else {
+        None
+    }
+}
 
 #[cfg(windows)]
 pub(crate) fn no_window(cmd: &mut Command) {
@@ -55,3 +91,35 @@ pub(crate) fn disable_webview2_autofill(app: &tauri::App) {
 
 #[cfg(not(windows))]
 pub(crate) fn disable_webview2_autofill(_app: &tauri::App) {}
+
+#[cfg(all(test, target_os = "macos"))]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn portable_data_lives_beside_bundle_not_inside_it() {
+        let root = Path::new("/Users/player/Portable Client 空格");
+        let executable = root.join("Nova Launcher.app/Contents/MacOS/nova-launcher");
+        assert_eq!(macos_bundle_parent(&executable), Some(root));
+    }
+
+    #[test]
+    fn nested_app_directory_does_not_replace_the_actual_bundle() {
+        let root = Path::new("/Volumes/Clients.app/My Pack");
+        let executable = root.join("Nova Launcher.app/Contents/MacOS/nova-launcher");
+        assert_eq!(macos_bundle_parent(&executable), Some(root));
+    }
+
+    #[test]
+    fn ordinary_executable_paths_are_not_mistaken_for_bundles() {
+        assert_eq!(
+            macos_bundle_parent(Path::new("/Users/player/My Pack/nova-launcher")),
+            None
+        );
+        assert_eq!(
+            macos_bundle_parent(Path::new("/Users/player/Client.app/bin/nova-launcher")),
+            None
+        );
+    }
+}

@@ -7,7 +7,7 @@
 //! - [`classpath`] — which jars and natives the game starts with
 //! - [`launch`] — command-line construction and process supervision
 //! - [`log_export`] — writing captured console output to disk
-//! - [`platform`] — OS-specific process/window hygiene
+//! - [`platform`] — OS-specific portable paths and process/window hygiene
 
 mod classpath;
 mod config;

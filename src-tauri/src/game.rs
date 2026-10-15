@@ -13,22 +13,21 @@ pub(crate) struct GameSetup {
     pub version_id: String,
 }
 
-/// The `.minecraft` directory is a sibling of the launcher's working directory.
-fn detect_game_dir_at(cwd: &Path) -> Result<PathBuf, String> {
-    let dir = cwd.join(".minecraft");
+/// The `.minecraft` directory lives in the launcher's portable data directory.
+fn detect_game_dir_at(launcher_dir: &Path) -> Result<PathBuf, String> {
+    let dir = launcher_dir.join(".minecraft");
     if dir.is_dir() {
         Ok(dir)
     } else {
         Err(format!(
-            "当前目录（{}）下未找到 .minecraft，请将启动器与 .minecraft 放在同一目录",
-            cwd.display()
+            "启动器目录（{}）下未找到 .minecraft，请将启动器与 .minecraft 放在同一目录",
+            launcher_dir.display()
         ))
     }
 }
 
 pub(crate) fn detect_game_dir() -> Result<PathBuf, String> {
-    let cwd = std::env::current_dir().map_err(|e| format!("无法获取当前目录: {e}"))?;
-    detect_game_dir_at(&cwd)
+    detect_game_dir_at(&crate::platform::launcher_dir()?)
 }
 
 /// Auto-picks the version whose jar was modified most recently.
